@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../utils/db');
+const db = require('../config/db');
 const jwt = require('jsonwebtoken');
 
 // 🔒 Токенді тексеру
@@ -18,7 +18,7 @@ const verifyToken = (req, res, next) => {
 // Профильді алу
 router.get('/settings', verifyToken, (req, res) => {
   const id = req.userId;
-  db.query('SELECT name, email, photo FROM users WHERE id=?', [id], (err, results) => {
+  db.query('SELECT name, photo FROM users WHERE id=?', [id], (err, results) => {
     if (err) return res.status(500).json({ error: err });
     res.json(results[0]);
   });

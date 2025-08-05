@@ -1,20 +1,29 @@
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
+const dotenv = require('dotenv');
+const path = require('path');
 
-const authRoutes = require('./Routes/authRoutes');
-const postRoutes = require('./Routes/postRoutes');
+// 📌 Маршруттар
+const authRoutes = require('./Routes/authRoutes');   // авторизация
+const postRoutes = require('./Routes/postRoutes');   // посттар
+const settingsRoutes = require('./Routes/settingsRoutes'); // баптаулар
+
+dotenv.config();
 
 const app = express();
 
+// 📌 Ортақ middleware
 app.use(cors());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // суреттерді шығару
 app.use(express.json());
-app.use('/uploads', express.static('uploads'));
 
-app.use('/auth', authRoutes);
-app.use('/posts', postRoutes);
+// 📌 Негізгі маршруттар
+app.use('/api/auth', authRoutes);
+app.use('/api/posts', postRoutes); 
+app.use('/api/settings', settingsRoutes);
 
+// 📌 Серверді қосу
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`✅ Server started on http://localhost:${PORT}`);
 });

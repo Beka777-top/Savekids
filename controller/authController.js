@@ -1,64 +1,84 @@
-const pool = require('../config/db'); // PostgreSQL connection
+const pool = require('../config/db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const env = require('../config/env');
+const JWT_SECRET = env.JWT_SECRET;
 
-// ✅ Тіркелу — клиентке username қайтарамыз
+
+// ✅ Тіркелу
 exports.register = async (req, res) => {
+  const { username, password } = req.body;
+  console.log('Registering user:', username, password);
+
+  if (!username || !password) {
+    return res.status(400).json({ message: "Жіберілген ақпарат толық емес!" });
+  }
+
   try {
-    const { username, password } = req.body;
+    // Парольді хештеу
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Парольді хэштеу
-    const hash = await bcrypt.hash(password, 10);
-
-    // Дерекқорға жазу
-    await pool.query(
-      'INSERT INTO users (username, password) VALUES ($1, $2)',
-      [username, hash]
+    // Қолданушыны базаға қосу
+    const result = await pool.query(
+      'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING *',
+      [username, hashedPassword]
     );
 
-    // Клиентке username қайтарамыз
-    res.json({ message: 'Тіркелу сәтті өтті', success: true, username });
+    const newUser = result.rows[0];
+
+    // JWT жасау
+    const token = jwt.sign({ id: newUser.id }, JWT_SECRET, { expiresIn: '1h' });
+
+    return res.status(201).json({
+      message: "Тіркелдіңіз!",
+      token,
+      user: {
+        id: newUser.id,
+        username: newUser.username
+      }
+    });
   } catch (err) {
-    console.error('Register error:', err);
-    res.status(500).json({ message: 'Сервер қатесі', success: false });
+    console.error("❌ Register қатесі:", err);
+    res.status(500).json({ message: "Сервер қатесі", error: err.message, stack: err.stack });
   }
 };
 
-// ✅ Кіру — клиентке token және username қайтарамыз
+// ✅ Логин
 exports.login = async (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ message: "Барлық өрістерді толтырыңыз!" });
+  }
+
   try {
-    const { username, password } = req.body;
-
-    // Пайдаланушыны іздеу
+    // Қолданушыны табу
     const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-
-    if (result.rows.length === 0) {
-      return res.status(401).json({ message: 'Пайдаланушы табылмады', success: false });
-    }
-
     const user = result.rows[0];
 
-    // Құпиясөз тексеру
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Қате құпия сөз', success: false });
+    if (!user) {
+      return res.status(401).json({ message: 'Қолданушы табылмады' });
     }
 
-    // Token жасау
-    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
-      expiresIn: '24h',
-    });
+    // Пароль тексеру
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Қате логин немесе құпия сөз' });
+    }
 
-    // Клиентке token және username қайтарамыз
-    res.json({
-      success: true,
-      message: 'Кіру сәтті өтті',
+    // JWT жасау
+    const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '1h' });
+
+    return res.json({
+      message: "Кіру сәтті!",
       token,
-      username: user.username
+      user: {
+        id: user.id,
+        username: user.username
+      }
     });
-
   } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ message: 'Сервер қатесі', success: false });
+    console.error("❌ Login қатесі:", err);
+    res.status(500).json({ message: "Сервер қатесі", error: err.message, stack: err.stack });
   }
 };
