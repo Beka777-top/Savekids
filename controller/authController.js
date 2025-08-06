@@ -27,7 +27,7 @@ exports.register = async (req, res) => {
     const newUser = result.rows[0];
 
     // JWT жасау
-    const token = jwt.sign({ id: newUser.id }, JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ id: newUser.id }, JWT_SECRET, { expiresIn: '7d' });
 
     return res.status(201).json({
       message: "Тіркелдіңіз!",
@@ -39,6 +39,10 @@ exports.register = async (req, res) => {
     });
   } catch (err) {
     console.error("❌ Register қатесі:", err);
+    // Егер username қайталанса, арнайы хабарлама қайтару
+    if (err.code === '23505') { // PostgreSQL unique violation
+      return res.status(409).json({ message: "Бұл қолданушы аты бос емес!" });
+    }
     res.status(500).json({ message: "Сервер қатесі", error: err.message, stack: err.stack });
   }
 };
@@ -67,7 +71,7 @@ exports.login = async (req, res) => {
     }
 
     // JWT жасау
-    const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
 
     return res.json({
       message: "Кіру сәтті!",
@@ -82,3 +86,4 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: "Сервер қатесі", error: err.message, stack: err.stack });
   }
 };
+
